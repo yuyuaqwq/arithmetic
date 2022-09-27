@@ -57,7 +57,13 @@ operator -> + | - | * | /
                         -> 1 + 2 - 1
 
 
-但是似乎存在结合律的问题
+抽象语法树：
+          +
+        /   \
+       1     -
+           /   \
+          2     1
+左结合变为了右结合
 
 
 用EBNF可以描述成
@@ -68,13 +74,15 @@ operator -> + | - | * | /
 1 + 2 - 1
     -> S
         -> exp
-            -> 1 + 2 - 1        // 这里直接循环吃token，就全部推导出来了，在exp结构体中就需要使用vector来容纳
+            -> number + number - number
+                -> 1 + 2 - 1        // 这里直接循环吃token，就全部推导出来了，在exp结构体中就需要使用vector来容纳
 
     exp
    /   \
-  1     vector(+ 2, - 1)
+  1     + 2, - 1
 
 
+直接从左往右扫描数组，解决了结合律问题
 
 
 -----------------------------------
@@ -165,6 +173,63 @@ oper2 -> * | /
                                 -> 1 * 2 + 3 mulexp'
                                     -> 1 * 2 + 3
 
+
+抽象语法树：
+          +
+        /   \
+       *     3
+     /   \
+    1     2
+
+
+1 - 2 + 3
+    -> S
+        -> addexp
+            -> mulexp addexp'
+                -> mulexp - mulexp addexp'
+                    -> mulexp - mulexp + mulexp addexp'
+                        -> mulexp - mulexp + mulexp
+                            -> 1 mulexp' - 2 mulexp' + 3 mulexp'
+                                -> 1 - 2 + 3
+
+抽象语法树：
+          -
+        /   \
+       1     +
+           /   \
+          1     2
+
+
+用EBNF可以描述成
+
+S -> addexp
+addexp -> mulexp { oper1 mulexp }
+oper1 -> + | -
+mulexp -> number { oper2 number }
+oper2 -> * | /
+
+
+1 + 2 * 1
+    -> S
+        -> addexp
+            -> mulexp + mulexp
+                -> number + number * number
+                    -> 1 + 2 * 1
+
+
+1 + 2 * 1 - 3 / 2 + 5
+    -> S
+        -> addexp
+            -> mulexp + mulexp - mulexp + mulexp
+                -> number + number * 1 - 
+
+
+抽象语法树：
+                addexp
+               /      \
+            mulexp    +, mulexp,        -, mulexp,      +, mulexp
+                        /      \          /      \
+                       2       null     
 
 -----------------------------------
 
