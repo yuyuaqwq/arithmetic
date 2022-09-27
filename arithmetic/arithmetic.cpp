@@ -182,6 +182,9 @@ oper2 -> * | /
     1     2
 
 
+
+
+
 1 - 2 + 3
     -> S
         -> addexp
@@ -192,12 +195,17 @@ oper2 -> * | /
                             -> 1 mulexp' - 2 mulexp' + 3 mulexp'
                                 -> 1 - 2 + 3
 
+
+
 抽象语法树：
           -
         /   \
        1     +
            /   \
           1     2
+
+
+存在结合律问题
 
 
 用EBNF可以描述成
@@ -221,16 +229,17 @@ oper2 -> * | /
     -> S
         -> addexp
             -> mulexp + mulexp - mulexp + mulexp
-                -> number + number * 1 - 
+                -> 1 +  2 * 1  -  3 / 2  + 5
 
 
 抽象语法树：
                 addexp
                /      \
             mulexp    +, mulexp,        -, mulexp,      +, mulexp
-                        /      \          /      \
-                       2       null     
+           /      \     /      \          /      \        /      \
+          1       null 2       *, 1      3        /, 2   5        null
 
+解决右结合律问题
 -----------------------------------
 
 上面的还不支持括号，接下来试着改一下
