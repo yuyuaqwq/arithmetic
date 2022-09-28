@@ -257,7 +257,7 @@ atomicexp -> '(' addexp ')' | number
 (1 + 2) * 3
     -> S
         -> addexp
-            -> mulexp       因为无法满足addexp oper1 addexp的条件，"2) * 3"不可能被addexp推导出来，括号会变成一个整体
+            -> mulexp       因为无法满足addexp oper1 addexp的条件，"(1"不可能被addexp推导出来，括号会使其变成一个整体，在最后由atomicexp推导并去除括号
                 -> mulexp * atomicexp
                     -> atomicexp * 3
                         -> ( addexp ) * 3
@@ -411,7 +411,7 @@ public:
         token.type = TokenType::num;
         do {
             if (c >= '0' && c <= '9') {
-                token.str = std::string(1, c) + token.str;
+                token.str.push_back(c);
             }
             else {
                 SkipChar(-1);
@@ -622,7 +622,7 @@ public:
 
 int main()
 {
-    Lexer lexer("1 + 3 * (8 - 6 + 7) + 3 / 5");
+    Lexer lexer("1 + 3 * (8 + 3 * (10 - 7)) + 3 / 5");
 
     Parser parser(&lexer);
     Parser::S* s = parser.ParseS();
