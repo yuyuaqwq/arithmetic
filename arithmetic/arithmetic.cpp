@@ -3,7 +3,9 @@
 
 #include <iostream>
 
-#include "string"
+#include <string>
+#include <vector>
+
 /*
 
 -----------------------------------
@@ -288,8 +290,28 @@ atomicexp -> '(' addexp ')' | number
 
 
 
-addexp最终的产生式
-mulexp -> 
+
+
+addexp 产生的句型一定是 mulexp { oper1 mulexp }
+mulexp 产生的句型一定是 atomicexp { oper2 atomicexp }
+
+S -> addexp
+addexp -> mulexp { oper1 mulexp }
+oper1 -> + | -
+mulexp -> atomicexp { oper2 atomicexp }
+oper2 -> * | /
+atomicexp -> '(' addexp ')' | number
+
+
+
+
+
+1 + 3 * (8 - 6 + 7) + 3 / 5
+    -> S
+        -> addexp
+            -> mulexp + mulexp + mulexp
+                -> 1 + atomicexp * atomicexp + atomicexp / 5
+
 
 */
 
@@ -401,7 +423,7 @@ public:
     }
 
     void MatchToken(TokenType type) {
-        Token token = LookAhead();
+        Token token = NextToken();
         if (token.type != type) {
             throw std::exception("cannot match token");
         }
@@ -409,28 +431,40 @@ public:
     }
 };
 
-
 class Parser {
+
     Lexer* m_lexer;
 public:
 
-    struct ExpTail {
-        TokenType operType;
-        int num;
-        ExpTail* exp_tail;
+    struct AddExp;
 
-        ExpTail(TokenType _operType, int _num, ExpTail* _exp_tail) : operType(_operType), num(_num), exp_tail(_exp_tail) { }
+    struct AtomicExp {
+        AddExp* addexp;
+        int num;
+
+        AtomicExp(AddExp* _addexp, int _num) : num(_num), addexp(_addexp) { }
     };
 
-    struct Exp {
-        int num;
-        ExpTail* exp_tail;
-        Exp(int _num, ExpTail* _exp_tail) :  num(_num), exp_tail(_exp_tail) { }
+    struct MulExp {
+        AtomicExp* atomicexp;
+        std::vector<TokenType> oper2Arr;
+        std::vector<AtomicExp*> atomicexpArr;
+
+        MulExp(AtomicExp* _atomicexp, const std::vector<TokenType>& _oper2Arr, const std::vector<AtomicExp*>& _atomicexpArr) : atomicexp(_atomicexp), oper2Arr(_oper2Arr), atomicexpArr(_atomicexpArr) { }
+    };
+
+
+
+    struct AddExp {
+        MulExp* mulexp;
+        std::vector<TokenType> oper1Arr;
+        std::vector<MulExp*> mulexpArr;
+        AddExp(MulExp* _mulexp, const std::vector<TokenType>& _oper1Arr, const std::vector<MulExp*>& _mulexpArr) : mulexp(_mulexp), oper1Arr(_oper1Arr), mulexpArr(_mulexpArr) { }
     };
 
     struct S {
-        Exp* exp;
-        S(Exp* _exp) :exp(_exp) { }
+        AddExp* addexp;
+        S(AddExp* _addexp) :addexp(_addexp) { }
     };
 
 
@@ -440,13 +474,71 @@ public:
 public:
 
     S* ParseS() {
-        return new S(ParseExp());
+        return new S(ParseAddExp());
     }
 
-    Exp* ParseExp() {
-        int num = ParseNumber();
-        ExpTail* expTail = ParseExpTail();
-        return new Exp(num, expTail);
+    AddExp* ParseAddExp() {
+        MulExp* mulexp = ParseMulExp();
+        std::vector<TokenType> oper1Arr;
+        std::vector<MulExp*> mulexpArr;
+
+        do {
+            Token token = m_lexer->LookAhead();
+            if (token.type == TokenType::eof) {
+                break;
+            }
+            if (token.type != TokenType::add && token.type != TokenType::sub) {
+                break;
+            }
+            m_lexer->NextToken();
+            oper1Arr.push_back(token.type);
+            mulexpArr.push_back(ParseMulExp());
+
+        } while (true);
+
+
+        return new AddExp(mulexp, oper1Arr, mulexpArr);
+    }
+
+    MulExp* ParseMulExp() {
+        AtomicExp* atomicexp = ParseAtomicExp();
+        std::vector<TokenType> oper2Arr;
+        std::vector<AtomicExp*> atomicexpArr;
+
+        do {
+            Token token = m_lexer->LookAhead();
+            if (token.type == TokenType::eof) {
+                break;
+            }
+            if (token.type != TokenType::mul && token.type != TokenType::div) {
+                break;
+            }
+            m_lexer->NextToken();
+            oper2Arr.push_back(token.type);
+            atomicexpArr.push_back(ParseAtomicExp());
+
+        } while (true);
+
+
+        return new MulExp(atomicexp, oper2Arr, atomicexpArr);
+    }
+
+    AtomicExp* ParseAtomicExp() {
+        Token token = m_lexer->LookAhead();
+        if (token.type == TokenType::eof) {
+            throw std::exception("parse atomic exp error");
+        }
+        AddExp* addexp = nullptr;
+        int num = 0;
+        if (token.type == TokenType::lparen) {
+            m_lexer->NextToken();
+            addexp = ParseAddExp();
+            m_lexer->MatchToken(TokenType::rparen);
+        }
+        else {
+            num = ParseNumber();
+        }
+        return new AtomicExp(addexp, num);
     }
 
 
@@ -460,33 +552,84 @@ public:
     }
 
 
-    ExpTail* ParseExpTail() {
-        Token token = m_lexer->NextToken();
-        if (token.type == TokenType::eof) {
-            return nullptr;
-        }
-        if (token.type != TokenType::add && token.type != TokenType::sub && token.type != TokenType::mul && token.type != TokenType::div) {
-            throw std::exception("parse exp tail error");
-        }
-        int num = ParseNumber();
-        ExpTail* expTail = ParseExpTail();
-        return new ExpTail(token.type, num, expTail);
+    //ExpTail* ParseExpTail() {
+    //    Token token = m_lexer->NextToken();
+    //    if (token.type == TokenType::eof) {
+    //        return nullptr;
+    //    }
+    //    if (token.type != TokenType::add && token.type != TokenType::sub && token.type != TokenType::mul && token.type != TokenType::div) {
+    //        throw std::exception("parse exp tail error");
+    //    }
+    //    int num = ParseNumber();
+    //    ExpTail* expTail = ParseExpTail();
+    //    return new ExpTail(token.type, num, expTail);
 
-    }
+    //}
 
 
 
 };
 
+class Calculation {
+    Parser::S* m_s;
+public:
+    Calculation(Parser::S* s) : m_s(s) { }
+
+
+public:
+    int CalculationAtomicExp(Parser::AtomicExp* atomicexp) {
+        if (atomicexp->addexp == nullptr) {
+            return atomicexp->num;
+        }
+        else {
+            return CalculationAddExp(atomicexp->addexp);
+        }
+    }
+    int CalculationMulExp(Parser::MulExp* mulexp) {
+        int res = CalculationAtomicExp(mulexp->atomicexp);
+
+        for (int i = 0; i < mulexp->oper2Arr.size(); i++) {
+            if (mulexp->oper2Arr[i] == TokenType::mul) {
+                res *= CalculationAtomicExp(mulexp->atomicexpArr[i]);;
+            }
+            else {
+                res /= CalculationAtomicExp(mulexp->atomicexpArr[i]);;
+            }
+        }
+        return res;
+    }
+
+    int CalculationAddExp(Parser::AddExp* addexp) {
+        int res = CalculationMulExp(addexp->mulexp);
+        for (int i = 0; i < addexp->oper1Arr.size(); i++) {
+            if (addexp->oper1Arr[i] == TokenType::add) {
+                res += CalculationMulExp(addexp->mulexpArr[i]);;
+            }
+            else {
+                res -= CalculationMulExp(addexp->mulexpArr[i]);;
+            }
+        }
+        return res;
+    }
+
+
+    int CalculationS() {
+        return CalculationAddExp(m_s->addexp);
+    }
+};
 
 
 
 int main()
 {
-    Lexer lexer("1 + 2 + 3");
+    Lexer lexer("1 + 3 * (8 - 6 + 7) + 3 / 5");
+
     Parser parser(&lexer);
     Parser::S* s = parser.ParseS();
 
+    Calculation calc(s);
+
+    int res = calc.CalculationS();
 
     std::cout << "Hello World!\n";
 }
