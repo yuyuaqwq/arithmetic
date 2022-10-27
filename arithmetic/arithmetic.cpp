@@ -316,297 +316,45 @@ atomicexp -> '(' addexp ')' | number
 */
 
 
-enum class TokenType {
-    none = 0,
-    eof,
-    add,
-    sub,
-    mul,
-    div,
-    lparen,
-    rparen,
-    num,
-};
-
-struct Token {
-    TokenType type;
-    std::string str;
-};
-
-class Lexer {
-private:
-    std::string m_src;
-    size_t m_idx;
-    Token m_nextToken;
-
-public:
-    Lexer(std::string src) : m_src(src), m_idx(0) {
-        m_nextToken.type = TokenType::none;
-    }
-
-public:
-    char NextChar() {
-        if (m_idx < m_src.size()) {
-            return m_src[m_idx++];
-        }
-        return 0;
-    }
-
-    void SkipChar(int c) {
-        m_idx += c;
-    }
-
-    Token LookAhead() {
-        if (m_nextToken.type == TokenType::none) {
-            m_nextToken = NextToken();
-        }
-        return m_nextToken;
-
-    }
-
-    Token NextToken() {
-        
-        Token token;
-        if (m_nextToken.type != TokenType::none) {
-            token = m_nextToken;
-            m_nextToken.type = TokenType::none;
-            return token;
-        }
-
-        
-        char c;
-
-        while ((c = NextChar()) && c == ' ');
-
-        if (c == 0) {
-            token.type = TokenType::eof;
-            return token;
-        }
-
-        switch (c) {
-        case '+':
-            token.type = TokenType::add;
-            return token;
-        case '-':
-            token.type = TokenType::sub;
-            return token;
-        case '*':
-            token.type = TokenType::mul;
-            return token;
-        case '/':
-            token.type = TokenType::div;
-            return token;
-        case '(':
-            token.type = TokenType::lparen;
-            return token;
-        case ')':
-            token.type = TokenType::rparen;
-            return token;
-        }
-
-
-        if (c < '0' || c > '9') {
-            throw std::exception("cannot parse token");
-        }
-        token.type = TokenType::num;
-        do {
-            if (c >= '0' && c <= '9') {
-                token.str.push_back(c);
-            }
-            else {
-                SkipChar(-1);
-                break;
-            }
-        } while (c = NextChar());
-        
-        return token;
-    }
-
-    void MatchToken(TokenType type) {
-        Token token = NextToken();
-        if (token.type != type) {
-            throw std::exception("cannot match token");
-        }
-        return;
-    }
-};
-
-class Parser {
-
-    Lexer* m_lexer;
-public:
-
-    struct AddExp;
-
-    struct AtomicExp {
-        AddExp* addexp;
-        int num;
-
-        AtomicExp(AddExp* _addexp, int _num) : num(_num), addexp(_addexp) { }
-    };
-
-    struct MulExp {
-        AtomicExp* atomicexp;
-        std::vector<TokenType> oper2Arr;
-        std::vector<AtomicExp*> atomicexpArr;
-
-        MulExp(AtomicExp* _atomicexp, const std::vector<TokenType>& _oper2Arr, const std::vector<AtomicExp*>& _atomicexpArr) : atomicexp(_atomicexp), oper2Arr(_oper2Arr), atomicexpArr(_atomicexpArr) { }
-    };
-
-
-
-    struct AddExp {
-        MulExp* mulexp;
-        std::vector<TokenType> oper1Arr;
-        std::vector<MulExp*> mulexpArr;
-        AddExp(MulExp* _mulexp, const std::vector<TokenType>& _oper1Arr, const std::vector<MulExp*>& _mulexpArr) : mulexp(_mulexp), oper1Arr(_oper1Arr), mulexpArr(_mulexpArr) { }
-    };
-
-    struct S {
-        AddExp* addexp;
-        S(AddExp* _addexp) :addexp(_addexp) { }
-    };
-
-
-public:
-    Parser(Lexer* lexer) : m_lexer(lexer) { }
-
-public:
-
-    S* ParseS() {
-        return new S(ParseAddExp());
-    }
-
-    AddExp* ParseAddExp() {
-        MulExp* mulexp = ParseMulExp();
-        std::vector<TokenType> oper1Arr;
-        std::vector<MulExp*> mulexpArr;
-
-        do {
-            Token token = m_lexer->LookAhead();
-            if (token.type == TokenType::eof) {
-                break;
-            }
-            if (token.type != TokenType::add && token.type != TokenType::sub) {
-                break;
-            }
-            m_lexer->NextToken();
-            oper1Arr.push_back(token.type);
-            mulexpArr.push_back(ParseMulExp());
-
-        } while (true);
-
-
-        return new AddExp(mulexp, oper1Arr, mulexpArr);
-    }
-
-    MulExp* ParseMulExp() {
-        AtomicExp* atomicexp = ParseAtomicExp();
-        std::vector<TokenType> oper2Arr;
-        std::vector<AtomicExp*> atomicexpArr;
-
-        do {
-            Token token = m_lexer->LookAhead();
-            if (token.type == TokenType::eof) {
-                break;
-            }
-            if (token.type != TokenType::mul && token.type != TokenType::div) {
-                break;
-            }
-            m_lexer->NextToken();
-            oper2Arr.push_back(token.type);
-            atomicexpArr.push_back(ParseAtomicExp());
-
-        } while (true);
-
-
-        return new MulExp(atomicexp, oper2Arr, atomicexpArr);
-    }
-
-    AtomicExp* ParseAtomicExp() {
-        Token token = m_lexer->LookAhead();
-        if (token.type == TokenType::eof) {
-            throw std::exception("parse atomic exp error");
-        }
-        AddExp* addexp = nullptr;
-        int num = 0;
-        if (token.type == TokenType::lparen) {
-            m_lexer->NextToken();
-            addexp = ParseAddExp();
-            m_lexer->MatchToken(TokenType::rparen);
-        }
-        else {
-            num = ParseNumber();
-        }
-        return new AtomicExp(addexp, num);
-    }
-
-
-    int ParseNumber() {
-        Token token = m_lexer->NextToken();
-        if (token.type != TokenType::num) {
-            throw std::exception("parse number error");
-        }
-        int num = atoi(token.str.c_str());
-        return num;
-    }
-
-
-    //ExpTail* ParseExpTail() {
-    //    Token token = m_lexer->NextToken();
-    //    if (token.type == TokenType::eof) {
-    //        return nullptr;
-    //    }
-    //    if (token.type != TokenType::add && token.type != TokenType::sub && token.type != TokenType::mul && token.type != TokenType::div) {
-    //        throw std::exception("parse exp tail error");
-    //    }
-    //    int num = ParseNumber();
-    //    ExpTail* expTail = ParseExpTail();
-    //    return new ExpTail(token.type, num, expTail);
-
-    //}
-
-
-
-};
+#include "compiler/parser.h"
 
 class Calculation {
-    Parser::S* m_s;
+    compiler::S * m_s;
 public:
-    Calculation(Parser::S* s) : m_s(s) { }
+    Calculation(compiler::S* s) : m_s(s) { }
 
 
 public:
-    int CalculationAtomicExp(Parser::AtomicExp* atomicexp) {
+    int CalculationAtomicExp(compiler::AtomicExp* atomicexp) {
         if (atomicexp->addexp == nullptr) {
             return atomicexp->num;
         }
         else {
-            return CalculationAddExp(atomicexp->addexp);
+            return CalculationAddExp(atomicexp->addexp.get());
         }
     }
-    int CalculationMulExp(Parser::MulExp* mulexp) {
-        int res = CalculationAtomicExp(mulexp->atomicexp);
+    int CalculationMulExp(compiler::MulExp* mulexp) {
+        int res = CalculationAtomicExp(mulexp->atomicexp.get());
 
         for (int i = 0; i < mulexp->oper2Arr.size(); i++) {
-            if (mulexp->oper2Arr[i] == TokenType::mul) {
-                res *= CalculationAtomicExp(mulexp->atomicexpArr[i]);;
+            if (mulexp->oper2Arr[i] == compiler::TokenType::mul) {
+                res *= CalculationAtomicExp(mulexp->atomicexpArr[i].get());;
             }
             else {
-                res /= CalculationAtomicExp(mulexp->atomicexpArr[i]);;
+                res /= CalculationAtomicExp(mulexp->atomicexpArr[i].get());;
             }
         }
         return res;
     }
 
-    int CalculationAddExp(Parser::AddExp* addexp) {
-        int res = CalculationMulExp(addexp->mulexp);
+    int CalculationAddExp(compiler::AddExp* addexp) {
+        int res = CalculationMulExp(addexp->mulexp.get());
         for (int i = 0; i < addexp->oper1Arr.size(); i++) {
-            if (addexp->oper1Arr[i] == TokenType::add) {
-                res += CalculationMulExp(addexp->mulexpArr[i]);;
+            if (addexp->oper1Arr[i] == compiler::TokenType::add) {
+                res += CalculationMulExp(addexp->mulexpArr[i].get());;
             }
             else {
-                res -= CalculationMulExp(addexp->mulexpArr[i]);;
+                res -= CalculationMulExp(addexp->mulexpArr[i].get());;
             }
         }
         return res;
@@ -614,20 +362,21 @@ public:
 
 
     int CalculationS() {
-        return CalculationAddExp(m_s->addexp);
+        return CalculationAddExp(m_s->addexp.get());
     }
 };
 
 
 
+
 int main()
 {
+    using namespace compiler;
     Lexer lexer("1 + 3 * (8 + 3 * (10 - 7)) + 3 / 5");
-
     Parser parser(&lexer);
-    Parser::S* s = parser.ParseS();
+    auto s = parser.ParseS();
 
-    Calculation calc(s);
+    Calculation calc(s.get());
 
     int res = calc.CalculationS();
 

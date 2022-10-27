@@ -13,10 +13,36 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="头文件\compiler">
+      <UniqueIdentifier>{2ff0dd52-3bd0-43e5-9be6-bb6a02dab02f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\compiler">
+      <UniqueIdentifier>{232e316d-3ba2-4d3b-a00f-53b65a4f34ee}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="arithmetic.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="compiler\ast.cpp">
+      <Filter>源文件\compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="compiler\lexer.cpp">
+      <Filter>源文件\compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="compiler\parser.cpp">
+      <Filter>源文件\compiler</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="compiler\ast.h">
+      <Filter>头文件\compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="compiler\lexer.h">
+      <Filter>头文件\compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="compiler\parser.h">
+      <Filter>头文件\compiler</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
